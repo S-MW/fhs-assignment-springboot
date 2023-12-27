@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 
 @Component
+@Slf4j
 //@Order(1)
 public class TransactionFilter implements Filter {
 
@@ -22,9 +24,6 @@ public class TransactionFilter implements Filter {
     public TransactionFilter(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
-
-    Logger logger = LoggerFactory.getLogger(TransactionFilter.class);
-
     private final String WHITE_API = "/api/v1/login"; // TODO : MAKE IT AT CONSTANT
 
 
@@ -38,7 +37,7 @@ public class TransactionFilter implements Filter {
         } else if (req.getSession().getAttribute("rule") != null) { // TODO : MAKE IT AT CONSTANT
             chain.doFilter(request, response);
         } else {
-            logger.error("failed authentication while attempting to access");
+            log.error("failed authentication while attempting to access");
             handleDoFilterException((HttpServletResponse) response);
             return;
         }

@@ -5,17 +5,27 @@ import SB.assignment.dao.DeoHelper;
 import SB.assignment.dto.LoginForm;
 import SB.assignment.dto.SearchForm;
 import SB.assignment.exceptions.ApiRequestException;
+import SB.assignment.exceptions.UnauthorizedException;
+import SB.assignment.helpers.AuthorizationHelpers;
 import SB.assignment.helpers.SearchHelper;
+import jakarta.annotation.Nullable;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController()
 @RequestMapping("api/v1")
+@Validated
 public class TestController {
 
 
@@ -24,6 +34,9 @@ public class TestController {
 
     @Autowired
     private HttpServletRequest httpServletRequest;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
 
     @PostMapping("/login")
@@ -62,15 +75,8 @@ public class TestController {
 
 
     @GetMapping("/statements/{accountId}")
-    public Account getStatements(@PathVariable Integer accountId, @RequestBody SearchForm searchForm) {
+    public Account getStatements(@PathVariable @Min(value = 1, message = "can't be less than 1") @Max(value = 5, message = "can't be more than 5") Integer accountId, @Valid @Nullable @RequestBody SearchForm searchForm) {
         System.out.println("getStatements START with accountId: " + accountId);
-
-        try {
-
-//            var sql = """
-//                    SELECT *
-//                    FROM statement WHERE account_id = ?;
-//                    """;
 
             var sql = """
                      SELECT account.*, 
@@ -85,22 +91,22 @@ public class TestController {
 
             List<Account> accountWithAllStatements = DeoHelper.removedRedundant(jdbcTemplate.query(sql, new AccountRowMapper(), accountId));
 
-            // must be only one account because the (  WHERE account.id = ? )
-            Account returnAccount =  accountWithAllStatements.get(0);
-            returnAccount.setStatementsEntity(SearchHelper.StatementsFiltering(returnAccount.getStatementsEntity(),searchForm)); // TODO ,add this feature for admin only
+            // must be only one account because the ( WHERE account.id = ? )
+            Account returnAccount = accountWithAllStatements.get(0);
+            returnAccount.setAccount_number(passwordEncoder.encode(returnAccount.getAccount_number()));
 
+
+            if (searchForm != null ) {
+                if (AuthorizationHelpers.hasFilteringAuthorization(httpServletRequest.getSession().getAttribute("rule").toString())) {
+                    returnAccount.setStatementsEntity(SearchHelper.statementsFiltering(returnAccount.getStatementsEntity(), searchForm));
+                } else {
+                    throw new UnauthorizedException("unauthorized - unauthorized - unauthorized"); // TODO : 401
+                }
+            } else {
+                returnAccount.setStatementsEntity(SearchHelper.getStatementsByLastSelectedMonths(returnAccount.getStatementsEntity(), 3)); // TODO: CONSTANT
+            }
 
             return returnAccount;
-
-//            return jdbcTemplate.query(sql, new AccountRowMapper(),accountId);
-
-        } catch (Exception e) {
-            System.out.println("Exception - Exception - Exception");
-            System.out.println(e.getCause());
-            System.out.println(e.getMessage());
-            return null;
-        }
-
     }
 
 
