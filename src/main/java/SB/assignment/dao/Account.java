@@ -1,4 +1,4 @@
-package SB.assignment.controllers;
+package SB.assignment.dao;
 
 
 import lombok.AllArgsConstructor;
